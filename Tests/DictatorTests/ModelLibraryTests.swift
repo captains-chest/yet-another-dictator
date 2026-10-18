@@ -171,7 +171,10 @@ struct ModelLibraryTests {
         let library = ModelLibrary(
             manifest: try Self.testManifest(), root: root, transport: transport ?? self.transport,
             defaults: defaults, engine: engine,
-            makeTranscriber: { model, _ in gated[model] ?? FakeTranscriber(model: model) },
+            makeTranscriber: { model, _ in
+                if let gated = gated[model] { return gated }
+                return FakeTranscriber(model: model)
+            },
             onActivated: { activations.count += 1 }
         )
         library.downloadAttempts = 1
