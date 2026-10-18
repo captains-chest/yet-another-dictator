@@ -21,6 +21,8 @@ final class ModelLibrary {
     private(set) var inUse: SpeechModel?
     /// Status of the selected model only.
     private(set) var status: Status = .checking
+    /// Why the selected model failed to load, if it did. The model in use keeps serving.
+    private(set) var loadFailure: String?
     /// Bumped by every change, so changes the views show (installed/deleted) are observed.
     private(set) var revision = 0
     private var downloads: [SpeechModel: Int] = [:]
@@ -115,7 +117,10 @@ final class ModelLibrary {
     /// Persists the choice, then downloads (if needed) and loads only that model. If the user
     /// chooses again meanwhile, the latest choice wins.
     func choose(_ model: SpeechModel) async {
-        if model != selected { status = .checking }
+        if model != selected {
+            status = .checking
+            loadFailure = nil
+        }
         persist(model)
         await activate(model)
     }
@@ -139,8 +144,19 @@ final class ModelLibrary {
         Self.log.notice("model deleted: \(model.rawValue, privacy: .public)")
     }
 
+    /// Retry covers a failed download and a failed load alike.
+    var canRetry: Bool {
+        if case .failed = status { return true }
+        return loadFailure != nil
+    }
+
     var statusText: String? {
         if selected == nil, manifestError == nil { return "No speech model chosen" }
+        if let loadFailure, let selected {
+            var text = "Couldn't load \(selected.displayName): \(loadFailure)"
+            if let inUse, inUse != selected { text += " Still using \(inUse.displayName)." }
+            return text
+        }
         switch status {
         case .checking, .ready: return nil
         case .downloading(let progress):
@@ -205,11 +221,31 @@ final class ModelLibrary {
             }
             return
         }
-        guard inUse != model else { return }
-        await engine.use(makeTranscriber(model, installer.folder))
+        // Load the new model fully before handing over, so the old one keeps serving during
+        // the load and dictation is never interrupted by a switch (ADR 0009).
+        let next = makeTranscriber(model, installer.folder)
+        do {
+            try await next.prepare()
+        } catch {
+            guard selected == model else { return }
+            let message = String(describing: error)
+            loadFailure = message
+            Self.log.error("model load failed: \(message, privacy: .public)")
+            if inUse == nil {
+                engine.unavailable(message)
+                await onActivated()
+            }
+            return
+        }
+        // Commit with no await in between, so nothing can interleave a newer choice.
+        guard selected == model else { return }
+        let wasServing = inUse != nil
+        engine.use(next)
         inUse = model
+        loadFailure = nil
         Self.log.notice("model ready: \(model.rawValue, privacy: .public)")
-        await onActivated()
+        // Only the first serving model activates the controller; switches never touch it.
+        if !wasServing { await onActivated() }
     }
 
     /// Progress can arrive after the outcome, or for a model no longer selected; only a running

@@ -8,7 +8,7 @@ struct MenuContent: View {
     var body: some View {
         if let download = model.library.statusText {
             Text(download)
-            if case .failed = model.library.status {
+            if model.library.canRetry {
                 Button("Retry Model Download") { Task { await model.library.retry() } }
             }
             if model.library.needsChoice {
