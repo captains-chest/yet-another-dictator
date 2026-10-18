@@ -62,6 +62,73 @@ struct FakeTranscriber: Transcribing {
     func transcribe(_ samples: [Float], language: String?) async throws -> String { model.rawValue }
 }
 
+struct LoadBoom: Error, CustomStringConvertible { var description: String { "kaboom" } }
+
+/// A transcriber whose `prepare` can be held open or made to fail.
+final class GatedTranscriber: Transcribing, @unchecked Sendable {
+    let model: SpeechModel
+    private let lock = NSLock()
+    private var error: (any Error)?
+    private var held = false
+    private var waiter: CheckedContinuation<Void, Never>?
+    private var prepares = 0
+
+    init(model: SpeechModel) { self.model = model }
+
+    var prepareCount: Int { lock.withLock { prepares } }
+    func hold() { lock.withLock { held = true } }
+    func setError(_ error: (any Error)?) { lock.withLock { self.error = error } }
+
+    func release() {
+        let waiter = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            held = false
+            defer { self.waiter = nil }
+            return self.waiter
+        }
+        waiter?.resume()
+    }
+
+    func prepare() async throws {
+        let (error, held) = lock.withLock { () -> ((any Error)?, Bool) in
+            prepares += 1
+            return (self.error, held)
+        }
+        if let error { throw error }
+        if held {
+            await withCheckedContinuation { continuation in
+                let resume = lock.withLock { () -> Bool in
+                    if !held { return true }
+                    waiter = continuation
+                    return false
+                }
+                if resume { continuation.resume() }
+            }
+        }
+    }
+
+    func transcribe(_ samples: [Float], language: String?) async throws -> String { model.rawValue }
+}
+
+@MainActor
+final class IntegrationRecorder: AudioRecording {
+    var samples: [Float] = Array(repeating: 0.1, count: 16_000)
+    private(set) var recording = false
+    func start(onLevel: @escaping @Sendable (Float) -> Void) throws { recording = true }
+    func stop() -> [Float] { recording = false; return samples }
+}
+
+@MainActor
+final class IntegrationInserter: TextInserting {
+    func preflight() throws {}
+    func insert(_ text: String) async throws {}
+    func deleteBackward(_ count: Int) async throws {}
+}
+
+@MainActor
+final class IntegrationPreceding: PrecedingTextReading {
+    func textBeforeCursor(maxLength: Int) -> String? { "" }
+}
+
 @MainActor
 final class Activations {
     var count = 0
@@ -97,12 +164,14 @@ struct ModelLibraryTests {
     let engine = ActiveTranscriber()
     let activations = Activations()
 
-    func makeLibrary(transport: FakeTransport? = nil) throws -> ModelLibrary {
+    func makeLibrary(
+        transport: FakeTransport? = nil, gated: [SpeechModel: GatedTranscriber] = [:]
+    ) throws -> ModelLibrary {
         let activations = activations
         let library = ModelLibrary(
             manifest: try Self.testManifest(), root: root, transport: transport ?? self.transport,
             defaults: defaults, engine: engine,
-            makeTranscriber: { model, _ in FakeTranscriber(model: model) },
+            makeTranscriber: { model, _ in gated[model] ?? FakeTranscriber(model: model) },
             onActivated: { activations.count += 1 }
         )
         library.downloadAttempts = 1
@@ -291,5 +360,133 @@ struct ModelLibraryTests {
         #expect(library.statusText == nil)
         #expect(library.inUse == .whisperLargeV3Turbo)
         #expect(library.selected == .whisperLargeV3Turbo)
+    }
+}
+
+@MainActor
+extension ModelLibraryTests {
+    func waitForPrepare(_ transcriber: GatedTranscriber) async {
+        for _ in 0..<500 where transcriber.prepareCount == 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    @Test func switchKeepsOldServingWhileNewLoads() async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let parakeet = GatedTranscriber(model: .parakeetV2)
+        let library = try makeLibrary(gated: [.parakeetV2: parakeet])
+        await library.choose(.whisperLargeV3Turbo)
+        #expect(activations.count == 1)
+
+        parakeet.hold()
+        let switching = Task { await library.choose(.parakeetV2) }
+        await waitForPrepare(parakeet)
+        #expect(library.inUse == .whisperLargeV3Turbo)
+        #expect(await engineAnswer() == Self.whisper)
+
+        parakeet.release()
+        await switching.value
+        #expect(library.inUse == .parakeetV2)
+        #expect(await engineAnswer() == Self.parakeet)
+        // A switch never re-activates the controller.
+        #expect(activations.count == 1)
+    }
+
+    @Test func failedLoadKeepsPreviousAndOffersRetry() async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let parakeet = GatedTranscriber(model: .parakeetV2)
+        parakeet.setError(LoadBoom())
+        let library = try makeLibrary(gated: [.parakeetV2: parakeet])
+        await library.choose(.whisperLargeV3Turbo)
+        await library.choose(.parakeetV2)
+
+        #expect(library.loadFailure == "kaboom")
+        #expect(library.statusText?.hasPrefix("Couldn't load NVIDIA Parakeet TDT 0.6B v2: kaboom") == true)
+        #expect(library.statusText?.hasSuffix("Still using Whisper Large v3 Turbo.") == true)
+        #expect(library.canRetry)
+        #expect(library.inUse == .whisperLargeV3Turbo)
+        #expect(await engineAnswer() == Self.whisper)
+        #expect(activations.count == 1)
+
+        parakeet.setError(nil)
+        await library.retry()
+        #expect(library.inUse == .parakeetV2)
+        #expect(library.loadFailure == nil)
+        #expect(!library.canRetry)
+        #expect(library.statusText == nil)
+    }
+
+    @Test func failedFirstLoadTellsControllerWhy() async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let parakeet = GatedTranscriber(model: .parakeetV2)
+        parakeet.setError(LoadBoom())
+        let library = try makeLibrary(gated: [.parakeetV2: parakeet])
+        await library.choose(.parakeetV2)
+
+        #expect(activations.count == 1)
+        #expect(library.inUse == nil)
+        do {
+            try await engine.prepare()
+            Issue.record("expected the load failure")
+        } catch {
+            #expect("\(error)".contains("kaboom"), "got \(error)")
+            #expect(!"\(error)".contains("Choose a speech model"), "got \(error)")
+        }
+
+        parakeet.setError(nil)
+        await library.retry()
+        #expect(library.inUse == .parakeetV2)
+        #expect(activations.count == 2)
+    }
+
+    @Test func returningToServingModelDropsLoadingOne() async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let parakeet = GatedTranscriber(model: .parakeetV2)
+        let library = try makeLibrary(gated: [.parakeetV2: parakeet])
+        await library.choose(.whisperLargeV3Turbo)
+
+        parakeet.hold()
+        let switching = Task { await library.choose(.parakeetV2) }
+        await waitForPrepare(parakeet)
+        await library.choose(.whisperLargeV3Turbo)
+        parakeet.release()
+        await switching.value
+
+        #expect(library.selected == .whisperLargeV3Turbo)
+        #expect(library.inUse == .whisperLargeV3Turbo)
+        #expect(await engineAnswer() == Self.whisper)
+        #expect(activations.count == 1)
+    }
+
+    @Test func switchingDuringRecordingDoesNotWipeIt() async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let recorder = IntegrationRecorder()
+        let activations = Activations()
+        let controller = DictationController(
+            recorder: recorder, transcriber: engine, inserter: IntegrationInserter(),
+            precedingText: IntegrationPreceding(), stopTail: .zero
+        )
+        let library = ModelLibrary(
+            manifest: try Self.testManifest(), root: root, transport: transport,
+            defaults: defaults, engine: engine,
+            makeTranscriber: { model, _ in FakeTranscriber(model: model) },
+            onActivated: {
+                activations.count += 1
+                await controller.loadModel()
+            }
+        )
+        library.downloadAttempts = 1
+        await library.choose(.whisperLargeV3Turbo)
+        #expect(controller.state == .ready)
+
+        controller.hotkeyPressed()
+        #expect(controller.state == .recording)
+        #expect(recorder.recording)
+
+        await library.choose(.parakeetV2)
+        #expect(library.inUse == .parakeetV2)
+        #expect(controller.state == .recording)
+        #expect(recorder.recording)
+        #expect(activations.count == 1)
     }
 }

@@ -214,7 +214,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            if case .failed = model.library.status {
+            if model.library.canRetry {
                 Button("Retry Model Download") { Task { await model.library.retry() } }
             }
             Picker("Language", selection: Binding(get: { model.language }, set: { model.language = $0 })) {

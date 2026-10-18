@@ -9,3 +9,7 @@
   can stop decoding instead of finishing text nobody will use.
 - **ModelLibrary**: The app-level owner of which model is chosen, downloaded, deleted and in use
   (ADR 0007). It hands a ready model folder to a `ModelSession`.
+- **Handover**: The moment `ModelLibrary` swaps the engine to a newly chosen model (ADR 0009).
+  The new model is fully loaded first and the swap is atomic, so the old model keeps serving —
+  including during a recording — until the new one is ready. `inUse` names the model that
+  survived the handover, not merely the one selected.

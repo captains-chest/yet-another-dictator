@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-10-16
 - Builds on: [ADR 0006](0006-choose-the-speech-model.md) (choose the speech model; download nothing until chosen)
+- Amended (2026-10-18): [ADR 0009](0009-model-handover.md) changes activation — the new model is loaded before the handover commits, `inUse` is set only on that commit, and switches no longer call `onActivated`.
 
 ## Context
 
