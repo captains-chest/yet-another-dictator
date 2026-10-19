@@ -9,3 +9,6 @@
   can stop decoding instead of finishing text nobody will use.
 - **ModelLibrary**: The app-level owner of which model is chosen, downloaded, deleted and in use
   (ADR 0007). It hands a ready model folder to a `ModelSession`.
+- **ShortcutRouter**: The pure type that decides what each event from the keyboard tap means
+  (ADR 0010): dictation press/release/interrupt, undo, or "other input" (the cursor may have
+  moved). A modifier-only undo only counts on a clean release.

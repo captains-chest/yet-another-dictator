@@ -36,7 +36,6 @@ final class AppModel {
     let updates: UpdateController
     @ObservationIgnored private let overlay: OverlayPanel
     @ObservationIgnored private let defaults = UserDefaults.standard
-    @ObservationIgnored private var isMenuOpen = false
     private static let lastSeenVersionKey = "lastSeenVersion"
     private static let keepsMicrophoneReadyKey = "keepMicrophoneReady"
     private static let languageKey = "language"
@@ -106,15 +105,13 @@ final class AppModel {
         // Smart spacing: know when the cursor may have moved since the last dictation.
         hotkey.onUndo = { Task { await controller.undoLastDictation() } }
         // Clicks and arrow keys inside our own menu don't move the text cursor.
-        hotkey.onOtherInput = { [weak self] in
-            if self?.isMenuOpen != true { controller.noteOtherInput() }
-        }
+        hotkey.onOtherInput = { controller.noteOtherInput() }
         let center = NotificationCenter.default
         _ = center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.isMenuOpen = true }
+            MainActor.assumeIsolated { self?.hotkey.setOwnMenuOpen(true) }
         }
         _ = center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.isMenuOpen = false }
+            MainActor.assumeIsolated { self?.hotkey.setOwnMenuOpen(false) }
         }
         _ = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
