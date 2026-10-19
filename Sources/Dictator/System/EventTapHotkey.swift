@@ -106,6 +106,11 @@ final class EventTapHotkey {
         isRegistered = true
     }
 
+    /// While our own menu is tracking, its key events don't count as typing elsewhere.
+    func setOwnMenuOpen(_ open: Bool) {
+        context.setOwnMenuOpen(open)
+    }
+
     func unregister() {
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: false)
@@ -129,7 +134,9 @@ final class EventTapHotkey {
     }
 }
 
-/// State used on the tap thread. Guarded by a lock because `install` is called from the main thread.
+/// State used on the tap thread. Guarded by a lock because `install` is called from the main
+/// thread. Holds the `ShortcutRouter` (what each event means, ADR 0010) and the tap (so it can
+/// be re-enabled after a timeout); everything CoreGraphics-specific stays here.
 private final class TapContext: @unchecked Sendable {
     enum Event: Sendable {
         case action(ChordMatcher.Action)
@@ -140,21 +147,27 @@ private final class TapContext: @unchecked Sendable {
     var deliver: @Sendable (Event) -> Void = { _ in }
     private let ownPID: Int64
     private let lock = NSLock()
-    private var shortcut: Shortcut?
-    private var matcher: ChordMatcher?
-    private var undoShortcut: Shortcut?
-    private var undoMatcher: ChordMatcher?
+    private var router: ShortcutRouter?
+    private var ownMenuOpen = false
     private var tap: CFMachPort?
 
     init(ownPID: Int64) { self.ownPID = ownPID }
 
     func install(shortcut: Shortcut?, undo: Shortcut?, tap: CFMachPort?) {
         lock.withLock {
-            self.shortcut = shortcut
-            self.matcher = shortcut.map(ChordMatcher.init)
-            self.undoShortcut = undo
-            self.undoMatcher = undo.map(ChordMatcher.init)
             self.tap = tap
+            router = shortcut.map {
+                var router = ShortcutRouter(shortcut: $0, undo: undo)
+                router.ownMenuIsOpen = ownMenuOpen
+                return router
+            }
+        }
+    }
+
+    func setOwnMenuOpen(_ open: Bool) {
+        lock.withLock {
+            ownMenuOpen = open
+            router?.ownMenuIsOpen = open
         }
     }
 
@@ -164,10 +177,10 @@ private final class TapContext: @unchecked Sendable {
         defer { lock.unlock() }
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            // Keys may have been released while disabled; start tracking afresh.
-            if let tap, let shortcut {
-                matcher = ChordMatcher(shortcut)
-                undoMatcher = undoShortcut.map(ChordMatcher.init)
+            // Keys may have been released while disabled; the router starts tracking afresh and
+            // ends any hold-to-talk instead of leaving it stuck.
+            if let tap {
+                route(.reenabled)
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
             return false
@@ -180,10 +193,9 @@ private final class TapContext: @unchecked Sendable {
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             // Clicks in the menu bar (including our own menu) or in our windows don't move the
             // text cursor; any other click may.
-            if event.getIntegerValueField(.eventTargetUnixProcessID) != ownPID, !Self.isInMenuBar(event.location) {
-                deliver(.otherInput)
-            }
-            return false
+            let ignorable = event.getIntegerValueField(.eventTargetUnixProcessID) == ownPID
+                || Self.isInMenuBar(event.location)
+            return route(.click(ignorable: ignorable))
         default:
             break
         }
@@ -195,23 +207,22 @@ private final class TapContext: @unchecked Sendable {
         case .flagsChanged: keyEvent = .flagsChanged(code, flags: event.flags.rawValue)
         default: return false
         }
-        guard var matcher else { return false }
-        let (actions, swallow) = matcher.handle(keyEvent)
-        self.matcher = matcher
-        for action in actions { deliver(.action(action)) }
+        return route(.key(keyEvent))
+    }
 
-        var undoActions: [ChordMatcher.Action] = []
-        var undoSwallow = false
-        if var undoMatcher {
-            (undoActions, undoSwallow) = undoMatcher.handle(keyEvent)
-            self.undoMatcher = undoMatcher
-            if undoActions.contains(.pressed) { deliver(.undo) }
+    /// Feeds one input to the router and delivers its outputs. Call with the lock held.
+    private func route(_ input: ShortcutRouter.Input) -> Bool {
+        guard var router else { return false }
+        let (outputs, withhold) = router.handle(input)
+        self.router = router
+        for output in outputs {
+            switch output {
+            case .dictation(let action): deliver(.action(action))
+            case .undo: deliver(.undo)
+            case .otherInput: deliver(.otherInput)
+            }
         }
-
-        if case .down = keyEvent, !swallow, !undoSwallow, actions.isEmpty, undoActions.isEmpty {
-            deliver(.otherInput)
-        }
-        return swallow || undoSwallow
+        return withhold
     }
 
     /// Whether a point (global, top-left origin) is in the menu bar strip of the display it's on.
