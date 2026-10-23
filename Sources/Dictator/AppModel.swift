@@ -4,6 +4,8 @@ import ModelSession
 import Observation
 import OSLog
 import ParakeetTranscription
+import S1MiniCleanup
+import TranscriptCleanup
 import WhisperTranscription
 
 /// Composition root: builds the concrete adapters and wires them to the core controller.
@@ -45,9 +47,17 @@ final class AppModel {
     /// The chosen model, the one in use, downloads and deleting (ADR 0007).
     let library: ModelLibrary
     @ObservationIgnored private let modelPicker = ModelPickerWindow()
+    /// Optional cleanup of each transcript with S1-mini by Superwhisper (ADR 0011).
+    let cleanup: CleanupSettings
 
     init() {
         let engine = ActiveTranscriber()
+        let cleanupLog = Logger(subsystem: "com.captainduckay.dictator", category: "cleanup")
+        let cleaning = CleaningTranscriber(base: engine, onOutcome: { outcome, duration in
+            // Outcome and duration only; never text.
+            let seconds = Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+            cleanupLog.notice("cleanup: \(String(describing: outcome), privacy: .public) in \(seconds, format: .fixed(precision: 2), privacy: .public) s")
+        })
         let recorder = MicrophoneRecorder()
         self.recorder = recorder
         let microphone = MicrophoneSettings(source: AudioInputDeviceMonitor(), defaults: .standard)
@@ -58,7 +68,7 @@ final class AppModel {
         microphone.start()
         let controller = DictationController(
             recorder: recorder,
-            transcriber: engine,
+            transcriber: cleaning,
             inserter: KeystrokeTextInserter(),
             precedingText: FocusedTextReader()
         )
@@ -75,6 +85,12 @@ final class AppModel {
                 }
             },
             onActivated: { await controller.loadModel() }
+        )
+        self.cleanup = CleanupSettings.bundled(
+            transport: RangedTransport(),
+            defaults: .standard,
+            transcriber: cleaning,
+            makeCleaner: { folder in S1MiniCleaner(modelFolder: folder) }
         )
         let overlay = OverlayPanel(controller: controller)
         self.overlay = overlay
@@ -149,6 +165,7 @@ final class AppModel {
         shortcuts.start()
         if library.needsChoice { showModelPicker() }
         Task { await library.start() }
+        Task { await cleanup.start() }
         Task {
             if Permissions.microphone == .notDetermined {
                 _ = await Permissions.requestMicrophone()
