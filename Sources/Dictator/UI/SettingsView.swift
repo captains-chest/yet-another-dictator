@@ -69,6 +69,7 @@ struct SettingsView: View {
             case .general: generalSection
             case .permissions: permissionsSection
             case .model: modelSection
+            case .cleanup: CleanupSection(cleanup: model.cleanup)
             }
         }
         .formStyle(.grouped)
@@ -246,6 +247,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable, Hashable {
     case general
     case permissions
     case model
+    case cleanup
 
     var id: Self { self }
 
@@ -255,6 +257,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable, Hashable {
         case .general: "General"
         case .permissions: "Permissions"
         case .model: "Model"
+        case .cleanup: "Cleanup"
         }
     }
 }
