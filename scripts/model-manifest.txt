@@ -1,4 +1,4 @@
-# Speech models the app may download after install (never bundled), only the one the user picks. This file ships inside the signed
+# Models the app may download after install (never bundled), only the one the user picks. This file ships inside the signed
 # app and is the only trust anchor: every file is pinned to an immutable Hugging Face commit and
 # verified by SHA-256 before use. The manifest itself is never fetched from the network.
 # Format: <model-id>  <sha256>  <bytes>  <huggingface-path>  <local-path-under-the-model-folder>
@@ -48,3 +48,8 @@ parakeet-tdt-0.6b-v2  fb16c581ff5e1b962e7cb2181ed892cd32f9f84c12b6e80ff3e089f28e
 parakeet-tdt-0.6b-v2  3e06d16fd061294c8a75be68c43a3b1ed1f593d4a9c35249e9cdbccadc59721e  27166  FluidInference/parakeet-tdt-0.6b-v2-coreml/resolve/ee09c569f73759e6d44c9bd16766f477b2b36d39/Preprocessor.mlmodelc/model.mil  Preprocessor.mlmodelc/model.mil
 parakeet-tdt-0.6b-v2  a5f7df6c7f47147ae9486fe18cc7792f9a44d093ec3c6a11e91ef2dc363c48dc  298880  FluidInference/parakeet-tdt-0.6b-v2-coreml/resolve/ee09c569f73759e6d44c9bd16766f477b2b36d39/Preprocessor.mlmodelc/weights/weight.bin  Preprocessor.mlmodelc/weights/weight.bin
 parakeet-tdt-0.6b-v2  57019fe3c745772ca83a1b048a4bb951cd51329504ea33d4d83316b96e279a97  18762  FluidInference/parakeet-tdt-0.6b-v2-coreml/resolve/ee09c569f73759e6d44c9bd16766f477b2b36d39/parakeet_vocab.json  parakeet_vocab.json
+# S1-mini by Superwhisper: optional transcript cleanup, downloaded only when the user turns it on
+# (ADR 0011). GGUF Q4_K_M for llama.cpp, plus its LICENSE and NOTICE (Apache 2.0 with a naming term).
+s1-mini  3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634  484219808  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/s1-mini-q4_k_m.gguf  s1-mini-q4_k_m.gguf
+s1-mini  f715982df6ce767ae64864d74b95644e5d658aab54717dbceeb252eb3cbcb421  12033  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/LICENSE  LICENSE
+s1-mini  6eb1e98a0d0046dd1b71da19d3b64ebccc12622e7d62e5efcad10298b4d66292  507  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/NOTICE  NOTICE
