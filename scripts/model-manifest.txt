@@ -1,4 +1,4 @@
-# Speech models the app may download after install (never bundled), only the one the user picks. This file ships inside the signed
+# Models the app may download after install (never bundled), only the one the user picks. This file ships inside the signed
 # app and is the only trust anchor: every file is pinned to an immutable Hugging Face commit and
 # verified by SHA-256 before use. The manifest itself is never fetched from the network.
 # Format: <model-id>  <sha256>  <bytes>  <huggingface-path>  <local-path-under-the-model-folder>
@@ -69,3 +69,8 @@ phonon-2  2a98699e22d279dd37fa1d238aeb1c6db1df0d6fad687775324157689d8f3acf  2841
 phonon-2  4b8518a956450fec57f06c2a21bdffc26973f7f1fa6842fb38fe917f896b6b93  28181  FluidInference/phonon-2-coreml/resolve/a812a0dfef205660787ef6234317ab79acf4d5d6/Preprocessor.mlmodelc/model.mil  Preprocessor.mlmodelc/model.mil
 phonon-2  129b76e3aeafa8afa3ea76d995b964b145fe83700d579f6ff42c4c38fa0968ea  491072  FluidInference/phonon-2-coreml/resolve/a812a0dfef205660787ef6234317ab79acf4d5d6/Preprocessor.mlmodelc/weights/weight.bin  Preprocessor.mlmodelc/weights/weight.bin
 phonon-2  7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735  151122  FluidInference/phonon-2-coreml/resolve/a812a0dfef205660787ef6234317ab79acf4d5d6/parakeet_vocab.json  parakeet_vocab.json
+# S1-mini by Superwhisper: optional transcript cleanup, downloaded only when the user turns it on
+# (ADR 0011). GGUF Q4_K_M for llama.cpp, plus its LICENSE and NOTICE (Apache 2.0 with a naming term).
+s1-mini  3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634  484219808  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/s1-mini-q4_k_m.gguf  s1-mini-q4_k_m.gguf
+s1-mini  f715982df6ce767ae64864d74b95644e5d658aab54717dbceeb252eb3cbcb421  12033  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/LICENSE  LICENSE
+s1-mini  6eb1e98a0d0046dd1b71da19d3b64ebccc12622e7d62e5efcad10298b4d66292  507  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/NOTICE  NOTICE

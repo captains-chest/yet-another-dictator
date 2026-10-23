@@ -30,10 +30,27 @@ struct ModelManifestTests {
         let url = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "scripts/model-manifest.txt")
         let manifest = try ModelManifest(text: String(contentsOf: url, encoding: .utf8))
-        #expect(manifest.modelIDs == ["openai_whisper-large-v3-v20240930_turbo", "parakeet-tdt-0.6b-v2", "phonon-2"])
+        #expect(manifest.modelIDs == ["openai_whisper-large-v3-v20240930_turbo", "parakeet-tdt-0.6b-v2", "phonon-2", "s1-mini"])
         #expect(manifest.files(for: "openai_whisper-large-v3-v20240930_turbo").contains { $0.localPath == "tokenizer.json" })
         #expect(manifest.files(for: "parakeet-tdt-0.6b-v2").contains { $0.localPath == "parakeet_vocab.json" })
         #expect(manifest.files(for: "phonon-2").contains { $0.localPath == "JointDecisionv3.mlmodelc/coremldata.bin" })
+    }
+
+    /// S1-mini is pinned to one immutable commit, with the hash and size of the Q4_K_M GGUF, and
+    /// downloads its LICENSE and NOTICE with it (ADR 0011).
+    @Test func theShippedManifestPinsS1Mini() throws {
+        let url = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "scripts/model-manifest.txt")
+        let manifest = try ModelManifest(text: String(contentsOf: url, encoding: .utf8))
+        let files = manifest.files(for: "s1-mini")
+        let revision = "superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/"
+
+        #expect(files.map(\.localPath) == ["s1-mini-q4_k_m.gguf", "LICENSE", "NOTICE"])
+        #expect(files.allSatisfy { $0.remotePath.hasPrefix(revision) })
+        let gguf = try #require(files.first)
+        #expect(gguf.sha256 == "3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634")
+        #expect(gguf.bytes == 484_219_808)
+        #expect(gguf.url.absoluteString == "https://huggingface.co/\(revision)s1-mini-q4_k_m.gguf")
     }
 }
 
