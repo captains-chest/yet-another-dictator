@@ -130,8 +130,8 @@ struct ModelLibraryTests {
         return try ModelManifest(text: String(contentsOf: url, encoding: .utf8))
     }
 
-    @Test func rankingPutsParakeetFirstThenWhisper() {
-        #expect(SpeechModel.ranked == [.parakeetV2, .whisperLargeV3Turbo])
+    @Test func rankingPutsParakeetFirstThenPhonon2ThenWhisper() {
+        #expect(SpeechModel.ranked == [.parakeetV2, .phonon2, .whisperLargeV3Turbo])
     }
 
     @Test func everyModelIsPinnedInTheManifest() throws {
