@@ -177,11 +177,10 @@ final class CleanupSettings {
             status = .downloading(.init(completedBytes: 0, totalBytes: installer.totalBytes))
             Self.log.notice("cleanup model download started")
             let transport = transport
-            let task = Task {
-                try await installer.install(using: transport) { [weak self] progress in
-                    Task { @MainActor in self?.progressed(progress, id: id) }
-                }
+            let report: @Sendable (ModelInstaller.Progress) -> Void = { [weak self] progress in
+                Task { @MainActor in self?.progressed(progress, id: id) }
             }
+            let task = Task { try await installer.install(using: transport, progress: report) }
             download = task
             let result = await task.result
             guard id == generation else { return }
