@@ -11,6 +11,8 @@ all under licenses compatible with that. This file is bundled in `Dictator.app/C
 | FluidAudio 0.17.7 | Runs the Parakeet and Phonon-2 models on Core ML (Swift code linked into the app; the optional NemoTextProcessing binary is turned off) | Apache 2.0, © FluidInference | https://github.com/FluidInference/FluidAudio |
 | NVIDIA Parakeet TDT 0.6B v2 (Core ML conversion `FluidInference/parakeet-tdt-0.6b-v2-coreml`) | English speech model, downloaded only if you choose it | CC-BY-4.0, © NVIDIA Corporation; converted to Core ML by FluidInference | https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2, https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v2-coreml |
 | Phonon-2 (Core ML conversion `FluidInference/phonon-2-coreml`) | English speech model, downloaded only if you choose it | CC-BY-4.0, © 2026 Fermion Research, derived from NVIDIA Parakeet TDT 0.6B v3 (© NVIDIA Corporation, CC-BY-4.0); converted to Core ML by FluidInference | https://huggingface.co/FermionResearch/Phonon-2, https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3, https://huggingface.co/FluidInference/phonon-2-coreml |
+| llama.cpp b11838 (official `llama.xcframework`) | Runs the optional S1-mini cleanup model on Metal (dynamic framework embedded in the app) | MIT, © 2023-2026 The ggml authors | https://github.com/ggml-org/llama.cpp |
+| S1-mini by Superwhisper (`superwhisper/s1-mini-GGUF`, Q4_K_M) | Optional transcript cleanup model, downloaded only if you turn cleanup on | Apache 2.0 with an additional naming term, © 2026 Superwhisper; a derivative of Qwen3-0.6B, © 2024 Alibaba Cloud, Apache 2.0 | https://huggingface.co/superwhisper/s1-mini-GGUF |
 | DictationCore 0.1.0 | Shared dictation logic | MIT, © 2026 CaptainDuckay | https://github.com/captains-chest/DictationCore |
 
 `swift-argument-parser` (Apache 2.0) appears in `Package.resolved` because WhisperKit's command-line
@@ -32,6 +34,36 @@ Core ML by FluidInference (https://huggingface.co/FluidInference/phonon-2-coreml
 a812a0dfef205660787ef6234317ab79acf4d5d6); Dictator downloads that conversion unchanged.
 
 FluidAudio is licensed under the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
+**S1-mini by Superwhisper** is licensed under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0) with this additional term, which Dictator follows
+by always naming it "S1-mini by Superwhisper":
+
+> ADDITIONAL TERM
+>
+> In addition to the terms of the Apache License, Version 2.0 above: any use, distribution, or
+> integration of this model, whether unmodified or as part of a derivative work or product, must
+> continue to identify it by its original name, "S1-mini" by "Superwhisper", using that exact
+> capitalization, regardless of any other name under which the model or a product incorporating
+> it is marketed or distributed.
+
+Its NOTICE file:
+
+> S1-mini-GGUF
+> Copyright 2026 Superwhisper
+>
+> GGUF conversions of S1-mini, which is itself a derivative of Qwen3-0.6B,
+> Copyright 2024 Alibaba Cloud, licensed under the Apache License, Version 2.0.
+>
+> Any use, distribution, or integration of this model, whether unmodified or
+> as part of a derivative work or product, must continue to identify it by its
+> original name, "S1-mini" by "Superwhisper", using that exact capitalization.
+> This restates the ADDITIONAL TERM of the LICENSE file, which is the
+> operative text.
+
+The full LICENSE and NOTICE are bundled in `Dictator.app/Contents/Resources/ThirdParty`
+(`S1-mini-LICENSE`, `S1-mini-NOTICE`) and are downloaded with the model. Dictator downloads the
+model unchanged. llama.cpp's licence is bundled there too (`llama.cpp-LICENSE`).
 
 The full MIT license text applies to each MIT component, with that component's copyright notice:
 
