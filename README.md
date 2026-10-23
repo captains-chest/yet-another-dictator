@@ -3,7 +3,8 @@
 Minimal, local-only dictation for macOS. Press a shortcut, talk, and the text is typed into
 whatever field has focus. Transcription runs on-device with the speech model you choose on first
 launch: **NVIDIA Parakeet TDT 0.6B v2** (English, about 464 MB, the most accurate and fastest; via
-FluidAudio Core ML) or **Whisper Large v3 Turbo** (Automatic or English, about 1.6 GB; WhisperKit
+FluidAudio Core ML), **Phonon-2** (English, about 358 MB, a smaller Parakeet; via FluidAudio Core ML)
+or **Whisper Large v3 Turbo** (Automatic or English, about 1.6 GB; WhisperKit
 Core ML). Only the chosen model is downloaded, verified against a SHA-256 manifest built into the
 app. Audio never leaves the device; the model download is the only network use (besides the
 optional update check, and the update itself when you install one).
@@ -18,9 +19,9 @@ optional update check, and the update itself when you install one).
 - **Undo Last Dictation** from the menu (or an optional shortcut) removes exactly what was just
   typed, as long as you haven't typed or clicked since.
 - Consecutive dictations are spaced and capitalised to continue the sentence.
-- **Model:** switch between Parakeet and Whisper in Settings → Model (downloads on demand; delete the
+- **Model:** switch between Parakeet, Phonon-2 and Whisper in Settings → Model (downloads on demand; delete the
   one you no longer use).
-- **Language:** Automatic or English with Whisper; Parakeet is English only (Settings → Model).
+- **Language:** Automatic or English with Whisper; Parakeet and Phonon-2 are English only (Settings → Model).
 - **Microphone:** the system default input, or a specific one just for dictation (Settings →
   General), e.g. a desk microphone while calls keep using your headset. If it's unplugged,
   dictation uses the system default until it's back.
@@ -109,7 +110,7 @@ flowchart LR
 | --- | --- |
 | `DictationCore` | **Separate package**, [captains-chest/DictationCore](https://github.com/captains-chest/DictationCore), pinned exactly and shared with the iOS app. Pure logic: tap/hold state machine, shortcut chord model and matcher, transcript cleanup and smart spacing, the punctuation prompt given to Whisper, text chunking, capture buffer, undo history, version/What's New/update-check logic. Defines the ports. Its tests (with fakes) live in that repo. Change it there, tag a release, then bump the exact pin here (see `docs/adr/0002`). |
 | `WhisperTranscription` | The **only** code that imports WhisperKit, plus the model manifest, installer and download (shared by both models). Whisper-only fixes (e.g. 30-second windows) live here. |
-| `ParakeetTranscription` | The **only** code that imports FluidAudio (Parakeet TDT 0.6B v2, English). Loads only from the verified folder; FluidAudio never downloads. |
+| `ParakeetTranscription` | The **only** code that imports FluidAudio (Parakeet TDT 0.6B v2 and Phonon-2, English). Loads only from the verified folder; FluidAudio never downloads. |
 | `Dictator` | macOS adapters (hotkey, mic, typing, permissions) and SwiftUI/AppKit UI. Composition root is `AppModel`. |
 | `AppUpdate` / `DictatorUpdater` | Decides whether a release may be installed, and the unsandboxed XPC that replaces this app with that release (ADR 0005). |
 
@@ -121,7 +122,7 @@ flowchart LR
   (excluded from backup). Every file must match its size and SHA-256 before it is used; a `.complete`
   marker is written last. WhisperKit itself runs with `download: false` and a local tokenizer, and the
   transcriber refuses to load if any required file is missing (ADR 0004, ADR 0006). FluidAudio
-  loads Parakeet with `AsrModels.loadLocal` and never downloads by itself.
+  loads Parakeet and Phonon-2 with `AsrModels.loadLocal` and never downloads by itself.
 - **Updates, and you can turn the check off.** Once a day, `UpdateChecker` asks GitHub's public releases API whether a newer version exists. Nothing is downloaded until you choose **Install Update**. That downloads the same zip the release page offers, checks its `.sha256`, and only then asks the embedded updater to replace the app. The updater accepts a Developer ID build of Dictator (team 55GY5DC584) with a stapled notarization ticket that Gatekeeper accepts, and it will not install an older version. No token or user data is sent (ephemeral session). Settings → General → *Check for updates daily* turns the check off, and then this network use stops. See ADR 0005.
 - **Minimal entitlements:** App Sandbox + microphone + outgoing network connections (for the
   model download, the update check, and installing an update). The embedded updater is the one
@@ -160,10 +161,16 @@ flowchart LR
 ## License
 
 MIT © 2026 CaptainDuckay. See [LICENSE](LICENSE). Third-party components (WhisperKit,
-FluidAudio, the downloaded Whisper and Parakeet models) are credited in
+FluidAudio, the downloaded Whisper, Parakeet and Phonon-2 models) are credited in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 The Parakeet model is "parakeet-tdt-0.6b-v2" by NVIDIA Corporation, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 ([source](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)), used as converted to Core ML by
 [FluidInference](https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v2-coreml).
+
+The Phonon-2 model is "Phonon-2" by Fermion Research, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+([source](https://huggingface.co/FermionResearch/Phonon-2)), derived from NVIDIA's
+[parakeet-tdt-0.6b-v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (CC BY 4.0), used as
+converted to Core ML by [FluidInference](https://huggingface.co/FluidInference/phonon-2-coreml).

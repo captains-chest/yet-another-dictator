@@ -9,3 +9,6 @@
   can stop decoding instead of finishing text nobody will use.
 - **ModelLibrary**: The app-level owner of which model is chosen, downloaded, deleted and in use
   (ADR 0007). It hands a ready model folder to a `ModelSession`.
+- **Phonon-2**: Fermion Research's English re-training of NVIDIA Parakeet TDT 0.6B v3, offered as a
+  third speech model. It runs through the same FluidAudio adapter as Parakeet v2 (ADR 0006 note,
+  2026-10-23).

@@ -70,6 +70,7 @@ final class AppModel {
             makeTranscriber: { model, folder in
                 switch model {
                 case .parakeetV2: ModelSession.parakeet(modelFolder: folder)
+                case .phonon2: ModelSession.phonon2(modelFolder: folder)
                 case .whisperLargeV3Turbo: ModelSession.whisperKit(modelFolder: folder)
                 }
             },

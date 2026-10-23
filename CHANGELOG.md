@@ -4,6 +4,9 @@ All notable changes to Dictator. The newest version is shown in the app's What's
 
 ## [Unreleased]
 
+### Added
+- A third speech model for English: Phonon-2 by Fermion Research (about 358 MB), a smaller re-training of NVIDIA Parakeet. Choose it in Settings → Model or on first launch; it downloads only when you pick it. Parakeet stays the recommended model until Phonon-2 proves better on real dictations. Phonon-2 is licensed CC-BY-4.0; the credit is in the license notices.
+
 ### Fixed
 - Switching speech models back and forth while one downloads no longer starts a second download of the same model.
 - Settings no longer offers Delete for the model still in use while another one downloads.
