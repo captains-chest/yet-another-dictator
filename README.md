@@ -24,6 +24,10 @@ optional update check, and the update itself when you install one).
 - **Microphone:** the system default input, or a specific one just for dictation (Settings →
   General), e.g. a desk microphone while calls keep using your headset. If it's unplugged,
   dictation uses the system default until it's back.
+- **Cleanup (optional, off by default):** S1-mini by Superwhisper, a small model that runs on
+  your Mac, removes "um"s, applies spoken corrections ("by friday no wait thursday" → "by
+  Thursday") and formats numbers, dates, times and email addresses (Settings → Cleanup; English
+  only; downloads about 484 MB when turned on). If it fails or is too slow, the raw text is typed.
 - Optional: open at login, keep the microphone ready (catches the first word), daily update check.
 
 That's the whole feature set. See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
@@ -110,18 +114,22 @@ flowchart LR
 | `DictationCore` | **Separate package**, [captains-chest/DictationCore](https://github.com/captains-chest/DictationCore), pinned exactly and shared with the iOS app. Pure logic: tap/hold state machine, shortcut chord model and matcher, transcript cleanup and smart spacing, the punctuation prompt given to Whisper, text chunking, capture buffer, undo history, version/What's New/update-check logic. Defines the ports. Its tests (with fakes) live in that repo. Change it there, tag a release, then bump the exact pin here (see `docs/adr/0002`). |
 | `WhisperTranscription` | The **only** code that imports WhisperKit, plus the model manifest, installer and download (shared by both models). Whisper-only fixes (e.g. 30-second windows) live here. |
 | `ParakeetTranscription` | The **only** code that imports FluidAudio (Parakeet TDT 0.6B v2, English). Loads only from the verified folder; FluidAudio never downloads. |
+| `TranscriptCleanup` | The `TranscriptCleaning` port, the `CleaningTranscriber` decorator (raw text on failure or timeout) and S1-mini's exact prompt format and chunking (ADR 0011). DictationCore and Foundation only. |
+| `S1MiniCleanup` | The **only** code that imports llama.cpp (official xcframework, Metal). Runs S1-mini by Superwhisper from the verified folder. |
 | `Dictator` | macOS adapters (hotkey, mic, typing, permissions) and SwiftUI/AppKit UI. Composition root is `AppModel`. |
 | `AppUpdate` / `DictatorUpdater` | Decides whether a release may be installed, and the unsandboxed XPC that replaces this app with that release (ADR 0005). |
 
 ## Security
 
-- **Audio never leaves the device.** The network is used for the download of the model you choose and, if you leave it on, updates (below). Nothing is downloaded until you pick a model (ADR 0006); then `ModelInstaller` downloads that model's files listed in
+- **Audio never leaves the device.** The network is used for the download of the model you choose (and of the cleanup model, only if you turn cleanup on) and, if you leave it on, updates (below). Nothing is downloaded until you pick a model (ADR 0006); then `ModelInstaller` downloads that model's files listed in
   `model-manifest.txt`, which ships inside the signed app and is never fetched from the network, from
   immutable Hugging Face commits into `~/Library/Containers/com.captainduckay.dictator/Data/Library/Application Support/Models`
   (excluded from backup). Every file must match its size and SHA-256 before it is used; a `.complete`
   marker is written last. WhisperKit itself runs with `download: false` and a local tokenizer, and the
   transcriber refuses to load if any required file is missing (ADR 0004, ADR 0006). FluidAudio
-  loads Parakeet with `AsrModels.loadLocal` and never downloads by itself.
+  loads Parakeet with `AsrModels.loadLocal` and never downloads by itself. llama.cpp loads
+  S1-mini from the same kind of verified folder and has no network code in use; the transcript
+  is tokenized with special tokens off, so dictated text can't inject chat markup.
 - **Updates, and you can turn the check off.** Once a day, `UpdateChecker` asks GitHub's public releases API whether a newer version exists. Nothing is downloaded until you choose **Install Update**. That downloads the same zip the release page offers, checks its `.sha256`, and only then asks the embedded updater to replace the app. The updater accepts a Developer ID build of Dictator (team 55GY5DC584) with a stapled notarization ticket that Gatekeeper accepts, and it will not install an older version. No token or user data is sent (ephemeral session). Settings → General → *Check for updates daily* turns the check off, and then this network use stops. See ADR 0005.
 - **Minimal entitlements:** App Sandbox + microphone + outgoing network connections (for the
   model download, the update check, and installing an update). The embedded updater is the one
@@ -141,9 +149,10 @@ flowchart LR
   the focused app). Modifier keys, fn and Caps Lock always reach other
   apps (Caps Lock still toggles, and fn may still open the emoji picker depending on System
   Settings). Like all event taps, it can't see keys while a password field has secure input on.
-- **Supply chain:** two third-party dependencies, WhisperKit and FluidAudio (its optional
+- **Supply chain:** three third-party dependencies: WhisperKit and FluidAudio (its optional
   NemoTextProcessing binary trait is turned off), each pinned to an exact version
-  (`Package.resolved` is committed). Model files are pinned to immutable Hugging Face commits and
+  (`Package.resolved` is committed), and llama.cpp's official release xcframework (b11838),
+  pinned by URL and SHA-256 checksum in `Package.swift`. Model files are pinned to immutable Hugging Face commits and
   verified by SHA-256 (`scripts/model-manifest.txt`); LFS hashes were cross-checked against
   Hugging Face's published hashes.
 
@@ -160,10 +169,15 @@ flowchart LR
 ## License
 
 MIT © 2026 CaptainDuckay. See [LICENSE](LICENSE). Third-party components (WhisperKit,
-FluidAudio, the downloaded Whisper and Parakeet models) are credited in
+FluidAudio, llama.cpp, the downloaded Whisper, Parakeet and S1-mini models) are credited in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 The Parakeet model is "parakeet-tdt-0.6b-v2" by NVIDIA Corporation, licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 ([source](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2)), used as converted to Core ML by
 [FluidInference](https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v2-coreml).
+
+Transcript cleanup uses **S1-mini by Superwhisper**
+([source](https://huggingface.co/superwhisper/s1-mini-GGUF)), licensed under the Apache License
+2.0 with the term that it is always identified by that name. It is based on Qwen3-0.6B by Alibaba
+Cloud (Apache 2.0). It runs with [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT).
