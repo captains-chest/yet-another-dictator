@@ -41,6 +41,27 @@ let package = Package(
             ]
         ),
 
+        // Optional transcript cleanup (ADR 0011): the port, the S1-mini prompt format, chunking and
+        // the decorator that falls back to the raw transcript. Pure logic, no model runtime.
+        .target(
+            name: "TranscriptCleanup",
+            dependencies: [.product(name: "DictationCore", package: "DictationCore")]
+        ),
+
+        // llama.cpp, the official prebuilt xcframework (MIT, Metal on Apple Silicon). Pinned to one
+        // release by URL and checksum; bump deliberately after reviewing the release.
+        .binaryTarget(
+            name: "llama",
+            url: "https://github.com/ggml-org/llama.cpp/releases/download/b11838/llama-b11838-xcframework.zip",
+            checksum: "37cffab2499d4464defe050486f040c116156df6f840b63c9c44fd004f42807e"
+        ),
+
+        // The single seam where llama.cpp is used (S1-mini by Superwhisper, transcript cleanup).
+        .target(
+            name: "S1MiniCleanup",
+            dependencies: ["TranscriptCleanup", "llama"]
+        ),
+
         // Release lookup, signature policy and the replace step. Shared with the updater so the
         // unsandboxed helper checks the same facts the app does.
         .target(
@@ -57,6 +78,8 @@ let package = Package(
                 "ParakeetTranscription",
                 "ModelSession",
                 "AppUpdate",
+                "TranscriptCleanup",
+                "S1MiniCleanup",
             ]
         ),
 
@@ -74,10 +97,13 @@ let package = Package(
                 "Dictator",
                 "AppUpdate",
                 "WhisperTranscription",
+                "TranscriptCleanup",
             ]
         ),
         .testTarget(name: "ModelSessionTests", dependencies: ["ModelSession", .product(name: "DictationCore", package: "DictationCore")]),
         .testTarget(name: "ParakeetTranscriptionTests", dependencies: ["ParakeetTranscription", "ModelSession"]),
+        .testTarget(name: "TranscriptCleanupTests", dependencies: ["TranscriptCleanup", .product(name: "DictationCore", package: "DictationCore")]),
+        .testTarget(name: "S1MiniCleanupTests", dependencies: ["S1MiniCleanup", "TranscriptCleanup"]),
         .testTarget(name: "WhisperTranscriptionTests", dependencies: [.product(name: "DictationCore", package: "DictationCore"), "WhisperTranscription", "ModelSession"]),
     ]
 )
