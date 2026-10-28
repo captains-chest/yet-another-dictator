@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The bundled pages may listen to app events. App commands are allowed by default; plugins are used from Rust only.",
+  "windows": ["settings", "picker", "overlay", "whats-new"],
+  "permissions": ["core:event:default"]
+}

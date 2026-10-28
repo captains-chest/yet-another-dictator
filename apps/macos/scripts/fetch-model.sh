@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Downloads a Whisper model into ./Model and verifies every file against scripts/model-manifest.txt
+# Downloads a Whisper model into apps/macos/Model and verifies every file against scripts/model-manifest.txt
 # (pinned Hugging Face commits + SHA-256). Idempotent. For the end-to-end test only: the app does
 # not bundle the model; it downloads and verifies it on first launch (ADR 0004).
-#   scripts/fetch-model.sh [model-id]   (default: the first model in the manifest)
+#   apps/macos/scripts/fetch-model.sh [model-id]   (default: the first model in the manifest)
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"

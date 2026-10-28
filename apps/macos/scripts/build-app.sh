@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Builds build/Dictator.app: release binary, the unsandboxed updater, llama.framework (for the
+# Builds apps/macos/build/Dictator.app: release binary, the unsandboxed updater, llama.framework (for the
 # optional S1-mini cleanup, ADR 0011) and the pinned model manifest, signed with hardened runtime.
 # The model itself is not bundled; the app downloads and verifies it on first launch (ADR 0004).
-#   SIGN_IDENTITY="Developer ID Application: …" scripts/build-app.sh   (default: ad-hoc "-")
+#   SIGN_IDENTITY="Developer ID Application: …" apps/macos/scripts/build-app.sh   (default: ad-hoc "-")
 #     With a real identity the signature gets a secure timestamp, as notarization requires.
-#   VERSION=1.2.3 scripts/build-app.sh   (overrides CFBundleShortVersionString; default: Info.plist)
+#   VERSION=1.2.3 apps/macos/scripts/build-app.sh   (overrides CFBundleShortVersionString; default: Info.plist)
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
+# CHANGELOG, LICENSE and notices are shared by both apps and live at the repository root.
+repo="$(cd "$root/../.." && pwd)"
 app="$root/build/Dictator.app"
 identity="${SIGN_IDENTITY:--}"
 
@@ -25,9 +27,9 @@ if [[ -n "${VERSION:-}" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$app/Contents/Info.plist"
 fi
 # Shown in the What's New window; bundled so it works offline.
-cp "$root/CHANGELOG.md" "$app/Contents/Resources/CHANGELOG.md"
-cp "$root/LICENSE" "$app/Contents/Resources/LICENSE"
-cp "$root/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
+cp "$repo/CHANGELOG.md" "$app/Contents/Resources/CHANGELOG.md"
+cp "$repo/LICENSE" "$app/Contents/Resources/LICENSE"
+cp "$repo/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/THIRD_PARTY_NOTICES.md"
 # The S1-mini licence (with its naming term), its NOTICE, and llama.cpp's licence, as they require.
 mkdir -p "$app/Contents/Resources/ThirdParty"
 cp "$root/Resources/ThirdParty/"* "$app/Contents/Resources/ThirdParty/"

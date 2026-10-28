@@ -1,0 +1,17 @@
+[package]
+name = "dictator-core"
+description = "Pure dictation logic: a port of captains-chest/DictationCore 0.3.0 and the macOS ModelSession. No I/O, no third-party code."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+
+
+[dev-dependencies]
+tempfile.workspace = true

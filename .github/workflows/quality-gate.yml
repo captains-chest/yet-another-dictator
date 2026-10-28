@@ -16,13 +16,16 @@ jobs:
   build-and-test:
     runs-on: xcode-27
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/macos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          path: apps/macos/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('apps/macos/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
 
       - name: Toolchain
@@ -38,3 +41,44 @@ jobs:
       # The end-to-end WhisperKit test is skipped because Model/ is not fetched here.
       - name: Test
         run: swift test
+
+  # apps/windows: the Rust workspace, built and tested on Windows itself.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/windows
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            apps/windows/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('apps/windows/Cargo.lock', 'apps/windows/rust-toolchain.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # rust-toolchain.toml pins the version; rustup installs it on first use.
+      - name: Toolchain
+        run: rustup show active-toolchain
+
+      # sherpa-onnx otherwise downloads its native libraries unverified at build time.
+      - name: Verified sherpa-onnx libraries
+        shell: pwsh
+        run: |
+          $dir = pwsh crates/dictator-engines/scripts/fetch-sherpa-onnx.ps1 win-x64
+          "SHERPA_ONNX_ARCHIVE_DIR=$dir" >> $env:GITHUB_ENV
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      # --locked fails if Cargo.lock is out of sync with the manifests.
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # The end-to-end model tests are skipped because Model/ is not fetched here.
+      - name: Test
+        run: cargo test --workspace --locked

@@ -1,0 +1,14 @@
+[package]
+name = "dictator-cleanup"
+description = "Transcript cleanup (ADR 0011): S1-mini prompt format, chunking and the cleaning decorator. Pure."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+dictator-core.workspace = true

@@ -1,0 +1,36 @@
+[package]
+name = "dictator-app"
+description = "Dictator for Windows: offline dictation into any app."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "dictator"
+
+[[bin]]
+name = "dictator"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+dictator-core.workspace = true
+dictator-cleanup.workspace = true
+dictator-models.workspace = true
+dictator-engines.workspace = true
+dictator-audio.workspace = true
+dictator-windows.workspace = true
+tauri.workspace = true
+tauri-plugin-autostart.workspace = true
+tauri-plugin-single-instance.workspace = true
+tauri-plugin-updater.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

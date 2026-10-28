@@ -3,12 +3,12 @@ name: Release
 on:
   release:
     types: [published]
-  # Dry run: builds, signs, notarizes and staples, then uploads the zip as a workflow artifact.
-  # Nothing is published or attached to a release.
+  # Dry run: builds both apps (macOS: also signs, notarizes and staples) and uploads the packages
+  # as workflow artifacts. Nothing is published or attached to a release.
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to stamp into the app (default: Info.plist)"
+        description: "Version to stamp into the apps (default: Info.plist on macOS, Cargo.toml on Windows)"
         required: false
         default: ""
 
@@ -24,6 +24,9 @@ jobs:
     timeout-minutes: 90
     env:
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+    defaults:
+      run:
+        working-directory: apps/macos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -133,6 +136,7 @@ jobs:
           shasum -a 256 "$zip" | sed 's|build/||' > "$zip.sha256"
           ls -lh build/*.zip
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
+          echo "zip_path=apps/macos/$zip" >> "$GITHUB_OUTPUT"
 
       # Gatekeeper's view of what users download: unzip the final archive and assess it again.
       - name: Verify the zip
@@ -153,8 +157,8 @@ jobs:
         with:
           name: Dictator-${{ steps.version.outputs.label }}-macos-arm64
           path: |
-            ${{ steps.package.outputs.zip }}
-            ${{ steps.package.outputs.zip }}.sha256
+            ${{ steps.package.outputs.zip_path }}
+            ${{ steps.package.outputs.zip_path }}.sha256
           retention-days: 7
 
       - name: Attach to release
@@ -174,6 +178,126 @@ jobs:
           fi
           security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
           rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/asc-key.p8" "$RUNNER_TEMP/keychains-before"
+
+  # apps/windows: the per-user NSIS installer, plus latest.json for the in-app updater
+  # (tauri-plugin-updater checks releases/latest/download/latest.json and verifies the installer
+  # with the minisign public key in tauri.conf.json).
+  windows-build-and-attach:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+      TAURI_CLI_VERSION: "2.12.4"
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/windows
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/bin/cargo-tauri.exe
+            apps/windows/target
+          key: cargo-release-${{ runner.os }}-${{ env.TAURI_CLI_VERSION }}-${{ hashFiles('apps/windows/Cargo.lock', 'apps/windows/rust-toolchain.toml') }}
+          restore-keys: cargo-release-${{ runner.os }}-${{ env.TAURI_CLI_VERSION }}-
+
+      # sherpa-onnx otherwise downloads its native libraries unverified at build time.
+      - name: Verified sherpa-onnx libraries
+        shell: pwsh
+        run: |
+          $dir = pwsh crates/dictator-engines/scripts/fetch-sherpa-onnx.ps1 win-x64
+          "SHERPA_ONNX_ARCHIVE_DIR=$dir" >> $env:GITHUB_ENV
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Version
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ -n "$TAG" ]]; then
+            version="${TAG#v}"; label="$TAG"
+          else
+            version="${INPUT_VERSION:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}"
+            label="v${version}-dryrun-${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Tauri CLI
+        run: |
+          if ! cargo tauri --version 2>/dev/null | grep -q "$TAURI_CLI_VERSION"; then
+            cargo install tauri-cli --version "=$TAURI_CLI_VERSION" --locked
+          fi
+
+      # Without the real public key, installed apps could never verify an update.
+      - name: Check updater key
+        run: |
+          if grep -q REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY crates/dictator-app/tauri.conf.json; then
+            echo "::error::Set plugins.updater.pubkey in apps/windows/crates/dictator-app/tauri.conf.json (see apps/windows/README.md)"
+            exit 1
+          fi
+
+      - name: Build installer
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        working-directory: apps/windows/crates/dictator-app
+        # llama.cpp is linked dynamically (its ggml would clash with whisper.cpp's), so its DLLs ship
+        # next to Dictator.exe. They exist only after a release build, so build first, then list them.
+        run: |
+          cargo build --release --locked -p dictator-app
+          dlls='"../../target/release/llama.dll":"llama.dll","../../target/release/llama-common.dll":"llama-common.dll","../../target/release/ggml.dll":"ggml.dll","../../target/release/ggml-base.dll":"ggml-base.dll","../../target/release/ggml-cpu.dll":"ggml-cpu.dll"'
+          cargo tauri build --bundles nsis --config "{\"version\":\"$VERSION\",\"bundle\":{\"resources\":{$dlls}}}" -- --locked
+
+      - name: Package
+        id: package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          LABEL: ${{ steps.version.outputs.label }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          out="$PWD/build"
+          rm -rf "$out" && mkdir -p "$out"
+          setup="Dictator-${LABEL}-windows-x64-setup.exe"
+          cp target/release/bundle/nsis/*-setup.exe "$out/$setup"
+          cp target/release/bundle/nsis/*-setup.exe.sig "$out/$setup.sig"
+          (cd "$out" && sha256sum "$setup" > "$setup.sha256")
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG:-$LABEL}/$setup"
+          jq -n --arg version "$VERSION" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg signature "$(cat "$out/$setup.sig")" --arg url "$url" \
+            '{version: $version, pub_date: $date, notes: "See the release notes on GitHub.",
+              platforms: {"windows-x86_64": {signature: $signature, url: $url}}}' > "$out/latest.json"
+          ls -l "$out"
+          echo "dir=apps/windows/build" >> "$GITHUB_OUTPUT"
+          echo "setup=$setup" >> "$GITHUB_OUTPUT"
+
+      - name: Upload dry-run artifact
+        if: env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Dictator-${{ steps.version.outputs.label }}-windows-x64
+          path: ${{ steps.package.outputs.dir }}
+          retention-days: 7
+
+      - name: Attach to release
+        if: env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          SETUP: ${{ steps.package.outputs.setup }}
+        working-directory: apps/windows/build
+        run: gh release upload "$TAG" "$SETUP" "$SETUP.sha256" latest.json --clobber --repo "$GITHUB_REPOSITORY"
 
   # Checks what users actually download: the asset as attached to the release.
   verify-published:

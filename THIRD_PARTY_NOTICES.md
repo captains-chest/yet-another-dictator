@@ -1,7 +1,9 @@
 # Third-party notices
 
 Dictator is MIT licensed (see `LICENSE`). The app ships the following third-party pieces,
-all under licenses compatible with that. This file is bundled in `Dictator.app/Contents/Resources`.
+all under licenses compatible with that. This file is bundled in `Dictator.app/Contents/Resources`
+(macOS) and next to `Dictator.exe` (Windows). The first table is the macOS app; the Windows app's
+components are listed under [Windows app](#windows-app).
 
 | Component | Used for | License | Source |
 | --- | --- | --- | --- |
@@ -64,6 +66,31 @@ Its NOTICE file:
 The full LICENSE and NOTICE are bundled in `Dictator.app/Contents/Resources/ThirdParty`
 (`S1-mini-LICENSE`, `S1-mini-NOTICE`) and are downloaded with the model. Dictator downloads the
 model unchanged. llama.cpp's licence is bundled there too (`llama.cpp-LICENSE`).
+
+## Windows app
+
+| Component | Used for | License | Source |
+| --- | --- | --- | --- |
+| Tauri 2.12 and its updater, autostart and single-instance plugins | App shell, installer, updates | MIT or Apache 2.0, © The Tauri Programme within The Commons Conservancy | https://github.com/tauri-apps/tauri |
+| sherpa-onnx 2.0.1 (prebuilt static libraries) with ONNX Runtime | Runs the Parakeet model | Apache 2.0, © Xiaomi Corporation (k2-fsa); ONNX Runtime MIT, © Microsoft Corporation | https://github.com/k2-fsa/sherpa-onnx, https://github.com/microsoft/onnxruntime |
+| NVIDIA Parakeet TDT 0.6B v2, int8 ONNX export (`csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8`) | English speech model, downloaded only if you choose it | CC-BY-4.0, © NVIDIA Corporation; exported to ONNX and quantised by csukuangfj (k2-fsa) | https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2 |
+| whisper.cpp (via whisper-rs 0.16.0) | Runs the Whisper model | MIT, © 2023-2026 The ggml authors; whisper-rs Unlicense | https://github.com/ggml-org/whisper.cpp, https://github.com/tazz4843/whisper-rs |
+| Whisper Large v3 Turbo, ggml Q5_0 (`ggerganov/whisper.cpp`) | Speech model, downloaded only if you choose it | MIT, © 2022 OpenAI; converted by Georgi Gerganov | https://huggingface.co/ggerganov/whisper.cpp |
+| llama.cpp (via llama-cpp-2 0.1.160, DLLs next to `Dictator.exe`) | Runs the optional S1-mini cleanup model | MIT, © 2023-2026 The ggml authors; llama-cpp-2 MIT or Apache 2.0 | https://github.com/ggml-org/llama.cpp, https://github.com/utilityai/llama-cpp-rs |
+| S1-mini by Superwhisper | As above | As above | As above |
+| cpal 0.18.2 | Microphone capture | Apache 2.0 | https://github.com/RustAudio/cpal |
+| windows 0.62.2 (windows-rs) | Win32 keyboard hook, typing, UI Automation | MIT or Apache 2.0, © Microsoft Corporation | https://github.com/microsoft/windows-rs |
+| ureq 3.5.0, rustls, sha2, serde and other crates in `apps/windows/Cargo.lock` | Downloads, verification, settings | MIT and/or Apache 2.0 | https://crates.io |
+
+Microsoft Edge WebView2 Runtime is not shipped: the installer downloads Microsoft's bootstrapper
+if it is missing (it is built into Windows 11).
+
+**Attribution (CC-BY-4.0):** "parakeet-tdt-0.6b-v2" by NVIDIA Corporation, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source:
+https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2. Modified: exported to ONNX and quantised to
+int8 by csukuangfj for sherpa-onnx
+(https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8); Dictator for
+Windows downloads that export unchanged.
 
 The full MIT license text applies to each MIT component, with that component's copyright notice:
 
