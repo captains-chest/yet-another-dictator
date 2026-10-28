@@ -173,8 +173,14 @@ fn on_menu(handle: &AppHandle, id: &str) {
     let app = handle.state::<SharedApp>();
     match id {
         "cancel" => app.runner.send(Event::Cancel),
-        "undo" => app.runner.send(Event::UndoRequested),
-        "retry" => app.retry_undelivered(),
+        "undo" => {
+            platform::restore_target();
+            app.runner.send(Event::UndoRequested);
+        }
+        "retry" => {
+            platform::restore_target();
+            app.retry_undelivered();
+        }
         "discard" => app.runner.send(Event::DiscardUndelivered),
         "install-update" => updates::install(handle.clone()),
         "whats-new" => open_window(handle, "whats-new"),

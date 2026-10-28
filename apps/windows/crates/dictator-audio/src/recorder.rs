@@ -6,6 +6,7 @@
 //! and feeds the pre-roll, so the first word isn't clipped.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -52,6 +53,8 @@ pub fn input_devices() -> Vec<InputDevice> {
 type FailureCallback = Arc<dyn Fn(String) + Send + Sync>;
 
 struct RunningStream {
+    /// Set when the stream dies (device unplugged); the next recording opens a new one.
+    failed: Arc<AtomicBool>,
     stop: mpsc::Sender<()>,
     thread: JoinHandle<()>,
 }
@@ -124,7 +127,7 @@ impl MicrophoneRecorder {
         if self
             .running
             .as_ref()
-            .is_some_and(|r| !r.thread.is_finished())
+            .is_some_and(|r| !r.thread.is_finished() && !r.failed.load(Ordering::Relaxed))
         {
             return Ok(());
         }
@@ -134,7 +137,15 @@ impl MicrophoneRecorder {
         let (stop_tx, stop_rx) = mpsc::channel();
         let buffer = Arc::clone(&self.buffer);
         let device_id = self.device_id.clone();
-        let on_failure = Arc::clone(&self.on_failure);
+        let failed = Arc::new(AtomicBool::new(false));
+        let on_failure: FailureCallback = {
+            let failed = Arc::clone(&failed);
+            let on_failure = Arc::clone(&self.on_failure);
+            Arc::new(move |message| {
+                failed.store(true, Ordering::Relaxed);
+                on_failure(message);
+            })
+        };
         // cpal streams aren't Send on every platform, so one thread owns the stream for its life.
         let thread = std::thread::Builder::new()
             .name("dictator-microphone".into())
@@ -157,6 +168,7 @@ impl MicrophoneRecorder {
             .recv_timeout(OPEN_TIMEOUT)
             .unwrap_or_else(|_| Err("The microphone didn't start in time.".to_owned()));
         self.running = Some(RunningStream {
+            failed,
             stop: stop_tx,
             thread,
         });

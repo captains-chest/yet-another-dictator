@@ -50,6 +50,12 @@ pub fn typed_character(vk: u32) -> Option<String> {
     }
 }
 
+/// Brings the app last dictated into back to the front, before typing from the tray menu.
+pub fn restore_target() {
+    #[cfg(windows)]
+    crate::hook::restore_target();
+}
+
 pub fn text_inserter() -> Box<dyn TextInserting + Send> {
     #[cfg(windows)]
     {

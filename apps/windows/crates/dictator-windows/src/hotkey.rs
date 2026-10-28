@@ -75,7 +75,7 @@ impl HotkeyListener {
         let event = match input {
             RawInput::KeyDown(vk) => KeyEvent::Down(KeyCode(u32::from(vk))),
             RawInput::KeyUp(vk) => KeyEvent::Up(KeyCode(u32::from(vk))),
-            RawInput::MouseDown => {
+            RawInput::MouseDown | RawInput::AppSwitched => {
                 let actions = if self.recorder.is_some() {
                     vec![]
                 } else {
@@ -133,7 +133,8 @@ impl HotkeyListener {
                 outcome.actions.push(HotkeyAction::Undo);
             }
         }
-        if matches!(event, KeyEvent::Down(_)) && !matched {
+        // Modifiers alone don't move the cursor; they may be the start of the undo shortcut.
+        if matches!(event, KeyEvent::Down(code) if !code.is_modifier()) && !matched {
             outcome.actions.push(HotkeyAction::OtherInput);
         }
         // A withheld chord key leaves Alt or Win held alone, which would open a menu on release.
@@ -193,10 +194,10 @@ mod tests {
     }
 
     #[test]
-    fn modifiers_on_their_own_are_other_input_but_not_withheld() {
+    fn modifiers_on_their_own_are_not_other_input_nor_withheld() {
         let mut listener = HotkeyListener::new(Some(Shortcut::default()), None);
         let outcome = listener.handle(RawInput::KeyDown(LEFT_CONTROL));
-        assert_eq!(outcome.actions, vec![HotkeyAction::OtherInput]);
+        assert_eq!(outcome.actions, vec![]);
         assert!(!outcome.swallow);
     }
 

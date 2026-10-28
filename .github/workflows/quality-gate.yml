@@ -80,5 +80,9 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       # The end-to-end model tests are skipped because Model/ is not fetched here.
+      # The tests load the llama.cpp DLLs, which the build leaves elsewhere.
       - name: Test
-        run: cargo test --workspace --locked
+        run: |
+          cargo test --workspace --locked --no-run
+          pwsh crates/dictator-engines/scripts/stage-llama-dlls.ps1 debug
+          cargo test --workspace --locked

@@ -190,7 +190,9 @@ impl App {
         let event = match action {
             HotkeyAction::Pressed => Event::HotkeyPressed,
             HotkeyAction::Released => Event::HotkeyReleased,
-            HotkeyAction::Interrupted | HotkeyAction::OtherInput => Event::OtherInput,
+            // A modifier-only shortcut held while another key is pressed: no release will come.
+            HotkeyAction::Interrupted => Event::Cancel,
+            HotkeyAction::OtherInput => Event::OtherInput,
             HotkeyAction::Undo => Event::UndoRequested,
             HotkeyAction::RecordingHeld(keys) => {
                 self.state().recording_held = labels(&keys);

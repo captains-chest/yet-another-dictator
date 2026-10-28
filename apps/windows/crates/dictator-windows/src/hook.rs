@@ -17,6 +17,8 @@ pub enum RawInput {
     /// A mouse button went down outside Dictator, so the text cursor may have moved.
     /// Carries no position.
     MouseDown,
+    /// Another app came to the front, so the text cursor is elsewhere now.
+    AppSwitched,
 }
 
 /// Tags our own SendInput events ("DICT"), so the hook ignores the text we type.
@@ -68,24 +70,27 @@ pub struct Verdict {
 }
 
 #[cfg(windows)]
-pub use win::InputHook;
+pub use win::{InputHook, restore_target};
 
 #[cfg(windows)]
 mod win {
     use std::cell::RefCell;
+    use std::sync::atomic::{AtomicIsize, Ordering};
     use std::sync::mpsc;
     use std::thread::JoinHandle;
 
-    use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
+    use windows::Win32::UI::Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VIRTUAL_KEY,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        CallNextHookEx, GetMessageW, GetWindowThreadProcessId, HC_ACTION, KBDLLHOOKSTRUCT,
-        LLKHF_UP, MSG, MSLLHOOKSTRUCT, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
-        WH_KEYBOARD_LL, WH_MOUSE_LL, WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_QUIT, WM_RBUTTONDOWN,
-        WM_XBUTTONDOWN, WindowFromPoint,
+        CallNextHookEx, EVENT_SYSTEM_FOREGROUND, GA_ROOT, GetAncestor, GetClassNameW, GetMessageW,
+        GetWindowThreadProcessId, HC_ACTION, KBDLLHOOKSTRUCT, LLKHF_UP, MSG, MSLLHOOKSTRUCT,
+        PostThreadMessageW, SetForegroundWindow, SetWindowsHookExW, UnhookWindowsHookEx,
+        WH_KEYBOARD_LL, WH_MOUSE_LL, WINEVENT_OUTOFCONTEXT, WM_LBUTTONDOWN, WM_MBUTTONDOWN,
+        WM_QUIT, WM_RBUTTONDOWN, WM_XBUTTONDOWN, WindowFromPoint,
     };
 
     use super::{MENU_MASK_KEY, OWN_INPUT_TAG, RawInput, Verdict, classify_key};
@@ -96,6 +101,19 @@ mod win {
     thread_local! {
         // Low-level hook procedures run on the thread that installed them.
         static HANDLER: RefCell<Option<Handler>> = const { RefCell::new(None) };
+    }
+
+    /// The last app window to come to the front. Opening the tray menu brings Dictator's hidden
+    /// tray window to the front, so the tray's Undo and Retry put this one back before typing.
+    static TARGET: AtomicIsize = AtomicIsize::new(0);
+
+    /// Brings the app last dictated into back to the front.
+    pub fn restore_target() {
+        let target = HWND(TARGET.load(Ordering::Relaxed) as *mut _);
+        if !target.is_invalid() {
+            // SAFETY: a stale handle only makes the call fail.
+            let _ = unsafe { SetForegroundWindow(target) };
+        }
     }
 
     /// The installed hooks. Dropping it removes them and stops the thread.
@@ -149,6 +167,18 @@ mod win {
                 return;
             }
         };
+        // SAFETY: an out-of-context hook, delivered through this thread's message loop.
+        let foreground = unsafe {
+            SetWinEventHook(
+                EVENT_SYSTEM_FOREGROUND,
+                EVENT_SYSTEM_FOREGROUND,
+                None,
+                Some(foreground_proc),
+                0,
+                0,
+                WINEVENT_OUTOFCONTEXT,
+            )
+        };
         // SAFETY: plain thread id query.
         let _ = ready.send(Ok(unsafe { GetCurrentThreadId() }));
         let mut message = MSG::default();
@@ -158,6 +188,7 @@ mod win {
         unsafe {
             let _ = UnhookWindowsHookEx(keyboard);
             let _ = UnhookWindowsHookEx(mouse);
+            let _ = UnhookWinEvent(foreground);
         }
         HANDLER.with_borrow_mut(|slot| *slot = None);
     }
@@ -198,7 +229,11 @@ mod win {
                 wparam.0 as u32,
                 WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN | WM_XBUTTONDOWN
             );
-            if is_button_down && event.dwExtraInfo != OWN_INPUT_TAG && !is_own_window_at(event) {
+            if is_button_down
+                && event.dwExtraInfo != OWN_INPUT_TAG
+                // SAFETY: a plain query.
+                && !is_dictator_or_taskbar(unsafe { WindowFromPoint(event.pt) })
+            {
                 handle(RawInput::MouseDown);
             }
         }
@@ -206,14 +241,47 @@ mod win {
         unsafe { CallNextHookEx(None, code, wparam, lparam) }
     }
 
-    /// Clicks in Dictator's own windows don't move the text cursor in the app being dictated into.
-    fn is_own_window_at(event: &MSLLHOOKSTRUCT) -> bool {
-        let mut process_id = 0;
-        // SAFETY: plain queries; a point over no window yields process id 0.
-        unsafe {
-            GetWindowThreadProcessId(WindowFromPoint(event.pt), Some(&mut process_id));
-            process_id == GetCurrentProcessId()
+    unsafe extern "system" fn foreground_proc(
+        _: HWINEVENTHOOK,
+        _: u32,
+        window: HWND,
+        _: i32,
+        _: i32,
+        _: u32,
+        _: u32,
+    ) {
+        if window.is_invalid() || is_dictator_or_taskbar(window) {
+            return;
         }
+        // Coming back to the same app (as after the tray menu) leaves the cursor where it was.
+        if TARGET.swap(window.0 as isize, Ordering::Relaxed) != window.0 as isize {
+            handle(RawInput::AppSwitched);
+        }
+    }
+
+    /// Clicks in Dictator's windows or on the taskbar (where its tray icon is) don't move the text
+    /// cursor in the app being dictated into; switching apps from the taskbar is seen when the app
+    /// comes to the front.
+    fn is_dictator_or_taskbar(window: HWND) -> bool {
+        let mut process_id = 0;
+        let mut class = [0u16; 64];
+        // SAFETY: plain queries; no window yields process id 0 and an empty class name.
+        let (is_own, length) = unsafe {
+            GetWindowThreadProcessId(window, Some(&mut process_id));
+            (
+                process_id == GetCurrentProcessId(),
+                GetClassNameW(GetAncestor(window, GA_ROOT), &mut class),
+            )
+        };
+        let class = String::from_utf16_lossy(&class[..length.max(0) as usize]);
+        is_own
+            || matches!(
+                class.as_str(),
+                "Shell_TrayWnd"
+                    | "Shell_SecondaryTrayWnd"
+                    | "NotifyIconOverflowWindow"
+                    | "TopLevelWindowForOverflowXamlIsland"
+            )
     }
 
     /// Taps [`MENU_MASK_KEY`], so releasing a held Alt or Win doesn't open a menu.
