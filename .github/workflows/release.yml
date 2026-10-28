@@ -214,8 +214,12 @@ jobs:
           $dir = pwsh crates/dictator-engines/scripts/fetch-sherpa-onnx.ps1 win-x64
           "SHERPA_ONNX_ARCHIVE_DIR=$dir" >> $env:GITHUB_ENV
 
+      # The tests load the llama.cpp DLLs, which the build leaves elsewhere.
       - name: Test
-        run: cargo test --workspace --locked
+        run: |
+          cargo test --workspace --locked --no-run
+          pwsh crates/dictator-engines/scripts/stage-llama-dlls.ps1 debug
+          cargo test --workspace --locked
 
       - name: Version
         id: version
@@ -255,9 +259,14 @@ jobs:
         # llama.cpp is linked dynamically (its ggml would clash with whisper.cpp's), so its DLLs ship
         # next to Dictator.exe. They exist only after a release build, so build first, then list them.
         run: |
+          set -euo pipefail
           cargo build --release --locked -p dictator-app
-          dlls='"../../target/release/llama.dll":"llama.dll","../../target/release/llama-common.dll":"llama-common.dll","../../target/release/ggml.dll":"ggml.dll","../../target/release/ggml-base.dll":"ggml-base.dll","../../target/release/ggml-cpu.dll":"ggml-cpu.dll"'
-          cargo tauri build --bundles nsis --config "{\"version\":\"$VERSION\",\"bundle\":{\"resources\":{$dlls}}}" -- --locked
+          names=$(pwsh ../dictator-engines/scripts/stage-llama-dlls.ps1 release | tr -d '\r')
+          dlls=""
+          for dll in $names; do
+            dlls+="\"../../target/release/$dll\":\"$dll\","
+          done
+          cargo tauri build --bundles nsis --config "{\"version\":\"$VERSION\",\"bundle\":{\"resources\":{${dlls%,}}}}" -- --locked
 
       - name: Package
         id: package
