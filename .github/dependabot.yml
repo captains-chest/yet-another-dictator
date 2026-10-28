@@ -2,12 +2,12 @@
 # the repository settings and are not limited by this schedule.
 version: 2
 updates:
-  # Package.swift / Package.resolved. WhisperKit and our shared DictationCore package
+  # apps/macos/Package.swift / Package.resolved. WhisperKit and our shared DictationCore package
   # (captains-chest/DictationCore) are pinned with `exact:`; Dependabot proposes a new
   # exact pin (manifest and Package.resolved together), so nothing floats without review. Model
-  # files (scripts/model-manifest.txt) are not covered and must be bumped by hand.
+  # files (apps/macos/scripts/model-manifest.txt) are not covered and must be bumped by hand.
   - package-ecosystem: "swift"
-    directory: "/"
+    directory: "/apps/macos"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -29,6 +29,27 @@ updates:
       shared-core:
         patterns: ["*DictationCore*", "*dictationcore*"]
       swift-packages:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # apps/windows/Cargo.toml / Cargo.lock. Every crate is pinned with `=` in the workspace
+  # manifest, so each bump is an explicit PR. Model files (apps/windows/model-manifest.txt) are
+  # not covered and must be bumped by hand.
+  - package-ecosystem: "cargo"
+    directory: "/apps/windows"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Copenhagen"
+    cooldown:
+      default-days: 3
+    groups:
+      # Tauri and its plugins move together.
+      tauri:
+        patterns: ["tauri*"]
+      cargo-crates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"

@@ -1,0 +1,27 @@
+[package]
+name = "dictator-engines"
+description = "The only code that touches model runtimes: sherpa-onnx (Parakeet), whisper.cpp (Whisper), llama.cpp (S1-mini)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# GPU (Vulkan) for whisper.cpp and llama.cpp. CPU everywhere without it.
+vulkan = ["whisper-rs/vulkan", "llama-cpp-2/vulkan"]
+
+[dependencies]
+dictator-core.workspace = true
+dictator-cleanup.workspace = true
+sherpa-onnx = { workspace = true, features = ["static"] }
+whisper-rs.workspace = true
+llama-cpp-2 = { workspace = true, features = ["dynamic-link"] }
+flate2.workspace = true
+
+[dev-dependencies]
+hound.workspace = true

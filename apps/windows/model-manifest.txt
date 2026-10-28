@@ -1,0 +1,22 @@
+# Models the Windows app may download after install (never bundled), only the one the user picks.
+# This file ships next to Dictator.exe inside the signed install and is the only trust anchor: every
+# file is pinned to an immutable Hugging Face commit and verified by SHA-256 before use. The
+# manifest itself is never fetched from the network.
+# Format: <model-id>  <sha256>  <bytes>  <huggingface-path>  <local-path-under-the-model-folder>
+# More models are added as extra lines with their own model-id.
+# The first model listed is the default, and the one scripts/fetch-model.ps1 fetches by default.
+# NVIDIA Parakeet TDT 0.6B v2 (English), int8 ONNX export for sherpa-onnx by csukuangfj (k2-fsa).
+# CC-BY-4.0. Runs on ONNX Runtime (CPU).
+parakeet-tdt-0.6b-v2-int8  a32b12d17bbbc309d0686fbbcc2987b5e9b8333a7da83fa6b089f0a2acd651ab  652184296  csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/1ab9323565ddb038682214b292f588070a538ce2/encoder.int8.onnx  encoder.int8.onnx
+parakeet-tdt-0.6b-v2-int8  b6bb64963457237b900e496ee9994b59294526439fbcc1fecf705b31a15c6b4e  7257753  csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/1ab9323565ddb038682214b292f588070a538ce2/decoder.int8.onnx  decoder.int8.onnx
+parakeet-tdt-0.6b-v2-int8  7946164367946e7f9f29a122407c3252b680dbae9a51343eb2488d057c3c43d2  1739080  csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/1ab9323565ddb038682214b292f588070a538ce2/joiner.int8.onnx  joiner.int8.onnx
+parakeet-tdt-0.6b-v2-int8  ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d  9384  csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/1ab9323565ddb038682214b292f588070a538ce2/tokens.txt  tokens.txt
+# OpenAI Whisper Large v3 Turbo, whisper.cpp ggml Q5_0 quantisation by ggerganov. MIT.
+# Runs on whisper.cpp with Vulkan (GPU) or CPU.
+whisper-large-v3-turbo-q5_0  394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2  574041195  ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin  ggml-large-v3-turbo-q5_0.bin
+# Phonon-2 is intentionally not offered on Windows: only a community ONNX export exists.
+# S1-mini by Superwhisper: optional transcript cleanup, downloaded only when the user turns it on
+# (ADR 0011). GGUF Q4_K_M for llama.cpp, plus its LICENSE and NOTICE (Apache 2.0 with a naming term).
+s1-mini  3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634  484219808  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/s1-mini-q4_k_m.gguf  s1-mini-q4_k_m.gguf
+s1-mini  f715982df6ce767ae64864d74b95644e5d658aab54717dbceeb252eb3cbcb421  12033  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/LICENSE  LICENSE
+s1-mini  6eb1e98a0d0046dd1b71da19d3b64ebccc12622e7d62e5efcad10298b4d66292  507  superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/NOTICE  NOTICE

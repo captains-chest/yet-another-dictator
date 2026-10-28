@@ -1,0 +1,19 @@
+[package]
+name = "dictator-models"
+description = "Pinned model manifest, catalog and the verified, resumable installer."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+dictator-core.workspace = true
+sha2.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

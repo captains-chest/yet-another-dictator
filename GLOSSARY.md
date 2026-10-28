@@ -20,3 +20,13 @@
   `DictationController`. It cleans each transcript when a cleaner is set, and returns the raw
   transcript when none is, or when cleanup fails or times out.
 - **CleanupSettings**: The app-level owner of the cleanup switch, style, download and loading.
+- **macOS app / Windows app**: The two apps in this monorepo, in `apps/macos` (Swift) and
+  `apps/windows` (Rust and Tauri) (ADR 0012). They share behaviour, version numbers and the
+  changelog.
+- **dictator-core**: The Windows app's port of DictationCore to Rust. A pure state machine:
+  `DictationController::handle(event)` returns effects, and the app shell runs them.
+- **Runner**: The Windows app's thread that owns the `DictationController`, runs its effects and
+  feeds the results back (`apps/windows/crates/dictator-app/src/dictation.rs`).
+- **Per-user install**: The Windows installer's only mode. Dictator goes into
+  `%LOCALAPPDATA%\Programs\Dictator` with no administrator rights, and its data goes into
+  `%LOCALAPPDATA%\Dictator`.

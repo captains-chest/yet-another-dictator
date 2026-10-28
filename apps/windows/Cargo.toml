@@ -1,0 +1,61 @@
+# Dictator for Windows. Pure logic builds and tests on any OS; only dictator-windows and the app
+# need Windows. Third-party crates are pinned exactly (=x.y.z) and Cargo.lock is committed, like
+# Package.resolved on macOS. Bump deliberately after reviewing the diff.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.5.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+dictator-core = { path = "crates/dictator-core" }
+dictator-cleanup = { path = "crates/dictator-cleanup" }
+dictator-models = { path = "crates/dictator-models" }
+dictator-engines = { path = "crates/dictator-engines" }
+dictator-audio = { path = "crates/dictator-audio" }
+dictator-windows = { path = "crates/dictator-windows" }
+
+# Microphone (WASAPI on Windows).
+cpal = "=0.18.2"
+# Win32 APIs; the version cpal uses, so only one copy is built.
+windows = "=0.62.2"
+
+# Model runtimes, only in dictator-engines. See crates/dictator-engines/README.md for how each gets
+# its native code and why llama.cpp is linked dynamically.
+sherpa-onnx = { version = "=2.0.1", default-features = false }
+whisper-rs = "=0.16.0"
+llama-cpp-2 = { version = "=0.1.160", default-features = false }
+# zlib, for Whisper's compression-ratio check on its output.
+flate2 = "=1.1.10"
+# Test-only: reads synthesised speech in the engines' end-to-end tests.
+hound = "=3.5.1"
+
+# Model downloads, only in dictator-models: blocking HTTPS (rustls, no cookies) and SHA-256.
+ureq = { version = "=3.5.0", default-features = false, features = ["rustls"] }
+sha2 = "=0.11.1"
+# Test-only: temporary model folders.
+tempfile = "=3.27.0"
+
+# Desktop shell (dictator-app): tray, windows, per-user installer, signed updates.
+tauri = { version = "=2.12.5", features = ["tray-icon", "image-png"] }
+tauri-build = { version = "=2.7.4", features = [] }
+tauri-plugin-autostart = "=2.7.0"
+tauri-plugin-single-instance = "=2.5.5"
+tauri-plugin-updater = "=2.14.1"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

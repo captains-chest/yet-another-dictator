@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dictator Settings</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="settings.js"></script>
+</head>
+<body>
+  <h1>Dictator</h1>
+  <p class="muted" id="version"></p>
+
+  <h2>Shortcut</h2>
+  <section class="card">
+    <div class="row">
+      <span class="label">Dictate</span>
+      <span class="keys" id="shortcut"></span>
+      <button id="record-shortcut">Change…</button>
+    </div>
+    <div class="row">
+      <span class="label">Undo last dictation</span>
+      <span class="keys" id="undo-shortcut"></span>
+      <button id="record-undo">Set…</button>
+      <button id="clear-undo">Clear</button>
+    </div>
+    <p class="muted">Any key or combination works, including a single modifier like Right Alt. Tap to start and stop. Hold to talk, release to finish.</p>
+    <p class="error" id="shortcut-error"></p>
+  </section>
+
+  <h2>Model</h2>
+  <section class="card">
+    <div id="models"></div>
+    <div class="row">
+      <span class="label">Language</span>
+      <select id="language"></select>
+    </div>
+    <p class="muted" id="language-note"></p>
+    <p class="muted">Runs entirely on this PC. Audio never leaves the device and is not saved. Downloading the model you choose (from Hugging Face, verified by SHA-256) is the only network use besides the optional update check and, when you install one, the update itself.</p>
+  </section>
+
+  <h2>Cleanup</h2>
+  <section class="card">
+    <div class="row">
+      <span class="label">Clean up with S1-mini</span>
+      <progress id="cleanup-progress" hidden></progress>
+      <input type="checkbox" id="cleanup-enabled">
+    </div>
+    <div class="row">
+      <span class="label">Style</span>
+      <select id="cleanup-styling"></select>
+    </div>
+    <p class="muted" id="cleanup-description"></p>
+    <p class="error" id="cleanup-error"></p>
+    <div class="row">
+      <span class="label muted">S1-mini, licensed under the Apache License 2.0. Based on Qwen3-0.6B. Runs with llama.cpp (MIT).</span>
+      <button class="danger" id="cleanup-delete">Delete</button>
+    </div>
+  </section>
+
+  <h2>Microphone</h2>
+  <section class="card">
+    <div class="row">
+      <span class="label">Microphone</span>
+      <select id="microphone"></select>
+    </div>
+    <p class="muted" id="microphone-note"></p>
+    <div class="row">
+      <span class="label">Keep microphone ready
+        <span class="muted"><br>Catches the first word even if you start speaking as you press the shortcut. Windows shows the microphone indicator while this is on. Audio is held in memory for under half a second and never saved.</span>
+      </span>
+      <input type="checkbox" id="keep-ready">
+    </div>
+  </section>
+
+  <h2>General</h2>
+  <section class="card">
+    <div class="row">
+      <span class="label">Open at sign-in</span>
+      <input type="checkbox" id="open-at-login">
+    </div>
+    <div class="row">
+      <span class="label">Check for updates daily
+        <span class="muted"><br>Asks GitHub whether a newer version exists. Nothing is downloaded until you choose Install Update. Dictation never uses the network.</span>
+      </span>
+      <input type="checkbox" id="check-updates">
+    </div>
+  </section>
+</body>
+</html>

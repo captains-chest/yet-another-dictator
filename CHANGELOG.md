@@ -4,6 +4,13 @@ All notable changes to Dictator. The newest version is shown in the app's What's
 
 ## [Unreleased]
 
+### Added
+- Dictator for Windows (x64), with the same features as the Mac app.
+  - The installer is per user: no administrator rights, nothing machine-wide.
+  - Choose Parakeet (English) or Whisper (Automatic or English) on first launch. Both run on your PC.
+  - Optional cleanup with S1-mini by Superwhisper.
+  - Updates install from the tray menu.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added
