@@ -11,6 +11,7 @@ final class LlamaModel: @unchecked Sendable {
         case tokenizeFailed
         case decodeFailed(Int32)
         case inputTooLong(Int)
+        case answerTooLong
 
         var description: String {
             switch self {
@@ -19,6 +20,7 @@ final class LlamaModel: @unchecked Sendable {
             case .tokenizeFailed: "The transcript could not be prepared for cleanup."
             case .decodeFailed(let code): "The cleanup model stopped with error \(code)."
             case .inputTooLong(let count): "A piece of \(count) tokens is too long to clean."
+            case .answerTooLong: "The cleanup model's answer did not end within its token limit."
             }
         }
     }
@@ -107,13 +109,16 @@ final class LlamaModel: @unchecked Sendable {
         for _ in 0..<maxNew {
             if stop.isSet { throw CancellationError() }
             var token = llama_sampler_sample(sampler, context, -1)
-            if llama_vocab_is_eog(vocab, token) { break }
+            if llama_vocab_is_eog(vocab, token) {
+                return S1MiniFormat.answer(from: String(decoding: output, as: UTF8.self))
+            }
             llama_sampler_accept(sampler, token)
             output += piece(token)
             let status = llama_decode(context, llama_batch_get_one(&token, 1))
             guard status == 0 else { throw Failure.decodeFailed(status) }
         }
-        return S1MiniFormat.answer(from: String(decoding: output, as: UTF8.self))
+        // A cut-off answer could drop the end of the dictation; the caller types the raw text.
+        throw Failure.answerTooLong
     }
 
     private func tokenize(_ text: String, special: Bool) throws -> [llama_token] {
