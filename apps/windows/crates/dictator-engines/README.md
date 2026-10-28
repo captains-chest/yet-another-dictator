@@ -38,7 +38,8 @@ $env:SHERPA_ONNX_ARCHIVE_DIR = pwsh crates/dictator-engines/scripts/fetch-sherpa
 ```
 
 The Windows static archives are built with the static CRT (`/MT`). Rust's MSVC targets default to
-`/MD`, so a Windows build needs `-C target-feature=+crt-static` (and `LLAMA_STATIC_CRT=1`), or a
+`/MD`, so a Windows build needs `-C target-feature=+crt-static` (plus `LLAMA_STATIC_CRT=1` and
+`CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded` for the CMake builds; `.cargo/config.toml` sets all three), or a
 switch to sherpa-onnx's `shared` feature, which ships `sherpa-onnx-c-api.dll` and `onnxruntime.dll`.
 
 ## Platforms
