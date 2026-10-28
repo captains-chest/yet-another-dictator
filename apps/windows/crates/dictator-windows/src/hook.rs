@@ -86,11 +86,11 @@ mod win {
         INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VIRTUAL_KEY,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        CallNextHookEx, EVENT_SYSTEM_FOREGROUND, GA_ROOT, GetAncestor, GetClassNameW, GetMessageW,
-        GetWindowThreadProcessId, HC_ACTION, KBDLLHOOKSTRUCT, LLKHF_UP, MSG, MSLLHOOKSTRUCT,
-        PostThreadMessageW, SetForegroundWindow, SetWindowsHookExW, UnhookWindowsHookEx,
-        WH_KEYBOARD_LL, WH_MOUSE_LL, WINEVENT_OUTOFCONTEXT, WM_LBUTTONDOWN, WM_MBUTTONDOWN,
-        WM_QUIT, WM_RBUTTONDOWN, WM_XBUTTONDOWN, WindowFromPoint,
+        CallNextHookEx, EVENT_SYSTEM_FOREGROUND, GA_ROOT, GetAncestor, GetClassNameW,
+        GetForegroundWindow, GetMessageW, GetWindowThreadProcessId, HC_ACTION, KBDLLHOOKSTRUCT,
+        LLKHF_UP, MSG, MSLLHOOKSTRUCT, PostThreadMessageW, SetForegroundWindow, SetWindowsHookExW,
+        UnhookWindowsHookEx, WH_KEYBOARD_LL, WH_MOUSE_LL, WINEVENT_OUTOFCONTEXT, WM_LBUTTONDOWN,
+        WM_MBUTTONDOWN, WM_QUIT, WM_RBUTTONDOWN, WM_XBUTTONDOWN, WindowFromPoint,
     };
 
     use super::{MENU_MASK_KEY, OWN_INPUT_TAG, RawInput, Verdict, classify_key};
@@ -179,6 +179,12 @@ mod win {
                 WINEVENT_OUTOFCONTEXT,
             )
         };
+        // The app in front at launch is the first target, until another comes to the front.
+        // SAFETY: a plain query.
+        let front = unsafe { GetForegroundWindow() };
+        if !front.is_invalid() && !is_dictator_or_taskbar(front) {
+            TARGET.store(front.0 as isize, Ordering::Relaxed);
+        }
         // SAFETY: plain thread id query.
         let _ = ready.send(Ok(unsafe { GetCurrentThreadId() }));
         let mut message = MSG::default();
