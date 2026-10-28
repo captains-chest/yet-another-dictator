@@ -1,7 +1,10 @@
 # sherpa-onnx's prebuilt Windows libraries use the static C runtime (/MT), so everything links it:
-# Rust via crt-static, llama.cpp's CMake build via LLAMA_STATIC_CRT. See crates/dictator-engines/README.md.
+# Rust via crt-static, llama.cpp's CMake build via LLAMA_STATIC_CRT, whisper.cpp's via
+# CMAKE_MSVC_RUNTIME_LIBRARY (whisper-rs-sys passes CMAKE_* through; ignored off MSVC).
+# See crates/dictator-engines/README.md.
 [target.'cfg(all(windows, target_env = "msvc"))']
 rustflags = ["-C", "target-feature=+crt-static"]
 
 [env]
 LLAMA_STATIC_CRT = "1"
+CMAKE_MSVC_RUNTIME_LIBRARY = "MultiThreaded"
