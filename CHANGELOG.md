@@ -4,6 +4,8 @@ All notable changes to Dictator. The newest version is shown in the app's What's
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-28
+
 ### Added
 - A third speech model for English: Phonon-2 by Fermion Research (about 358 MB), a smaller re-training of NVIDIA Parakeet. Choose it in Settings → Model or on first launch; it downloads only when you pick it. Parakeet stays the recommended model until Phonon-2 proves better on real dictations. Phonon-2 is licensed CC-BY-4.0; the credit is in the license notices.
 - Optional cleanup of each dictation with S1-mini by Superwhisper, a small model that runs on your Mac. It removes filler words like "um", applies spoken corrections ("by Friday, no wait, Thursday" becomes "by Thursday"), and formats numbers, dates, times and email addresses. Off by default: turn it on in Settings → Cleanup, which downloads the model (about 484 MB) and lets you pick a style from casual to formal. English only. If cleanup isn't ready, fails or takes too long, the dictation is typed as transcribed, and undo still removes exactly what was typed. S1-mini is licensed Apache 2.0; the credit is in the license notices.
