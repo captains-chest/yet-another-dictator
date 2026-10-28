@@ -36,7 +36,8 @@ ADR numbers 0009 and 0010 are taken by the open PRs #60 and #61, so this is 0011
 - Prompting follows the model card exactly: its system prompt, a control line
   `[Styling: X] [Structure: Y] [Context: Z]` using trained values only, the transcript, and the
   assistant prefix with an empty think block. Decoding is greedy with at most
-  ceil(1.3 × input tokens) + 32 new tokens. Inputs over 1000 tokens are cut at sentence ends
+  ceil(1.3 × input tokens) + 32 new tokens; an answer that reaches the limit counts as a
+  failure, so the raw transcript is typed rather than a cut-off one. Inputs over 1000 tokens are cut at sentence ends
   (words, for a single over-long sentence) and cleaned chunk by chunk. An empty answer is valid
   and means type nothing ("um" → "").
 - Settings exposes Styling (casual, semi-casual, semi-formal, formal; default semi-formal).
