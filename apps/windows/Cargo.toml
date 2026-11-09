@@ -29,14 +29,14 @@ windows = "=0.62.2"
 # its native code and why llama.cpp is linked dynamically.
 sherpa-onnx = { version = "=2.0.1", default-features = false }
 whisper-rs = "=0.16.0"
-llama-cpp-2 = { version = "=0.1.160", default-features = false }
+llama-cpp-2 = { version = "=0.1.161", default-features = false }
 # zlib, for Whisper's compression-ratio check on its output.
 flate2 = "=1.1.10"
 # Test-only: reads synthesised speech in the engines' end-to-end tests.
 hound = "=3.5.1"
 
 # Model downloads, only in dictator-models: blocking HTTPS (rustls, no cookies) and SHA-256.
-ureq = { version = "=3.5.0", default-features = false, features = ["rustls"] }
+ureq = { version = "=3.5.1", default-features = false, features = ["rustls"] }
 sha2 = "=0.11.1"
 # Test-only: temporary model folders.
 tempfile = "=3.27.0"
