@@ -43,7 +43,7 @@ tempfile = "=3.27.0"
 
 # Desktop shell (dictator-app): tray, windows, per-user installer, signed updates.
 tauri = { version = "=2.12.5", features = ["tray-icon", "image-png"] }
-tauri-build = { version = "=2.7.4", features = [] }
+tauri-build = { version = "=2.7.6", features = [] }
 tauri-plugin-autostart = "=2.7.0"
 tauri-plugin-single-instance = "=2.5.5"
 tauri-plugin-updater = "=2.14.1"
